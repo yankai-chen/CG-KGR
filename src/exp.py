@@ -522,11 +522,11 @@ def topk_save(sess, model, user_list, train_record, test_record, item_set, k_lis
         item_score_pair_sorted = sorted(item_score_map.items(), key=lambda x: x[1], reverse=True)
         item_sorted = [i[0] for i in item_score_pair_sorted]
 
-        score_map[user] = item_score_map
-
         hits = np.zeros(len(item_sorted))
         index = [i for i, x in enumerate(item_sorted) if x in test_record[user]]
         hits[index] = 1
+
+        score_map[user] = hits.astype(bool)
 
         for k in k_list:
             hit_k = hits[:k]
@@ -578,13 +578,7 @@ def top_k_offline(train_data, test_data, score_map, user_list, n_item):
 
     user_list = list(user_list)
     for user in user_list:
-        item_score_map = score_map[user]
-        item_score_pair_sorted = sorted(item_score_map.items(), key=lambda x: x[1], reverse=True)
-        item_sorted = [i[0] for i in item_score_pair_sorted]
-
-        hits = np.zeros(len(item_sorted))
-        index = [i for i, x in enumerate(item_sorted) if x in test_record[user]]
-        hits[index] = 1
+        hits = score_map[user].astype(float)
 
         for k in k_list:
             hit_k = hits[:k]
