@@ -206,11 +206,11 @@ def exp_i(args, train_file, eval_file, test_file, logging, task):
             else:
                 raise NotImplementedError
 
+
     k_list = [1, 5, 10, 20, 50, 100]
     return best_epoch1, best_epoch2, k_list, best_test_auc, best_test_f1, \
            eval_precision_list, eval_recall_list, eval_ndcg_list, \
            test_precision_list, test_recall_list, test_ndcg_list
-
 
 def Exp_all(args):
     log_name = create_log_name(args.saved_dir)
@@ -266,9 +266,8 @@ def Exp_all(args):
     return log_name
 
 
-
-
-def exp_i_save(args, train_file, eval_file, test_file, logging, task, data_split, save_task):
+# *********************************Reproduce results********************************
+def exp_i_save(args, train_file, eval_file, test_file, logging, task, data_split):
     ''' do a neighbor sampling in an online manner '''
     tf.reset_default_graph()
     np.random.seed(args.seed)
@@ -327,15 +326,15 @@ def exp_i_save(args, train_file, eval_file, test_file, logging, task, data_split
 
             if task == 'ALL':
                 time0 = time()
-                eval_auc, eval_f1, eval_scores = ctr_special(sess, model, eval_data, args.batch_size, ngh_sample_dict)
-                test_auc, test_f1, test_scores = ctr_special(sess, model, test_data, args.batch_size, ngh_sample_dict)
+                eval_auc, eval_f1, eval_scores = ctr_save(sess, model, eval_data, args.batch_size, ngh_sample_dict)
+                test_auc, test_f1, test_scores = ctr_save(sess, model, test_data, args.batch_size, ngh_sample_dict)
 
-                if save_task == 'ctr':
-                    save_file = f'./checkpoints/{args.data_name}/CTR-eval-split-{data_split}-epoch-{epoch}.npy'
-                    np.save(save_file, eval_scores)
 
-                    save_file = f'./checkpoints/{args.data_name}/CTR-test-split-{data_split}-epoch-{epoch}.npy'
-                    np.save(save_file, test_scores)
+                save_file = f'./checkpoints/{args.data_name}/CTR-eval-split-{data_split}-epoch-{epoch}.npy'
+                np.save(save_file, eval_scores)
+
+                save_file = f'./checkpoints/{args.data_name}/CTR-test-split-{data_split}-epoch-{epoch}.npy'
+                np.save(save_file, test_scores)
 
                 if eval_auc > max_eval_auc:
                     max_eval_auc = eval_auc
@@ -352,20 +351,20 @@ def exp_i_save(args, train_file, eval_file, test_file, logging, task, data_split
                 time0 = time()
 
                 eval_user_list, train_record, eval_record, item_set, k_list = topk_settings(train_data, eval_data, n_item)
-                eval_precision, eval_recall, eval_ndcg, eval_score_map = topk_speical(sess, model, eval_user_list, train_record, eval_record,
-                                                                       item_set, k_list, args.batch_size, ngh_sample_dict)
+                eval_precision, eval_recall, eval_ndcg, eval_score_map = topk_save(sess, model, eval_user_list, train_record, eval_record,
+                                                                                   item_set, k_list, args.batch_size, ngh_sample_dict)
 
                 test_user_list, train_record, test_record, item_set, k_list = topk_settings(train_data, test_data, n_item)
-                test_precision, test_recall, test_ndcg, test_score_map = topk_speical(sess, model, test_user_list, train_record, test_record,
-                                                                       item_set, k_list, args.batch_size, ngh_sample_dict)
+                test_precision, test_recall, test_ndcg, test_score_map = topk_save(sess, model, test_user_list, train_record, test_record,
+                                                                                   item_set, k_list, args.batch_size, ngh_sample_dict)
                 time1 = time() - time0
 
-                if (save_task == 'topk'):
-                    save_file = f'./checkpoints/{args.data_name}/TopK-eval-split-{data_split}-epoch-{epoch}.npy'
-                    np.save(save_file, [eval_score_map, eval_user_list])
 
-                    save_file = f'./checkpoints/{args.data_name}/TopK-test-split-{data_split}-epoch-{epoch}.npy'
-                    np.save(save_file, [test_score_map, test_user_list])
+                save_file = f'./checkpoints/{args.data_name}/TopK-eval-split-{data_split}-epoch-{epoch}.npy'
+                np.save(save_file, [eval_score_map, eval_user_list])
+
+                save_file = f'./checkpoints/{args.data_name}/TopK-test-split-{data_split}-epoch-{epoch}.npy'
+                np.save(save_file, [test_score_map, test_user_list])
 
                 eval_precision_list.append(eval_precision)
                 eval_recall_list.append(eval_recall)
@@ -419,7 +418,7 @@ def exp_i_save(args, train_file, eval_file, test_file, logging, task, data_split
            test_precision_list, test_recall_list, test_ndcg_list
 
 
-def Exp_all_save(args, type):
+def Exp_all_save(args):
     log_name = create_log_name(args.saved_dir)
     log_config(path=args.saved_dir, name=log_name, level=logging.DEBUG, console_level=logging.DEBUG, console=True)
     logging.info(args)
@@ -443,7 +442,7 @@ def Exp_all_save(args, type):
         best_epoch1, best_epoch2, k_list, best_test_auc, best_test_f1, \
         eval_precision_list, eval_recall_list, eval_ndcg_list, \
         test_precision_list, test_recall_list, test_ndcg_list = \
-            exp_i_save(args, train_file, eval_file, test_file, logging, args.task, i, type)
+            exp_i_save(args, train_file, eval_file, test_file, logging, args.task, i)
 
         logging.info('')
         auc.append(best_test_auc)
@@ -472,6 +471,80 @@ def Exp_all_save(args, type):
     logging.info('********************************************************************************************')
     logging.info('********************************************************************************************')
     return log_name
+
+
+def ctr_save(sess, model, data, batch_size, ngh_sample_feed_dict):
+    start = 0
+    auc_list = []
+    f1_list = []
+    score_list = []
+    while start + batch_size <= data.shape[0]:
+        feed_dict = get_feed_dict(model, data, start, start + batch_size)
+        feed_dict.update(ngh_sample_feed_dict)
+        auc, f1, scores = model.eval_save(sess, feed_dict)
+        auc_list.append(auc)
+        f1_list.append(f1)
+        score_list.append(scores)
+        start += batch_size
+    return float(np.mean(auc_list)), float(np.mean(f1_list)), score_list
+
+
+def topk_save(sess, model, user_list, train_record, test_record, item_set, k_list, batch_size,
+              ngh_sample_feed_dict):
+    precision_list = {k: [] for k in k_list}
+    recall_list = {k: [] for k in k_list}
+    ndcg_list = {k: [] for k in k_list}
+    score_map = dict()
+    for user in user_list:
+        test_item_list = list(item_set - train_record[user])
+        item_score_map = dict()
+        start = 0
+        while start + batch_size <= len(test_item_list):
+            feed_dict = {model.user_indices: [user] * batch_size,
+                         model.item_indices: test_item_list[start:start + batch_size]}
+            feed_dict.update(ngh_sample_feed_dict)
+            items, scores = model.get_scores(sess, feed_dict=feed_dict)
+
+            for item, score in zip(items, scores):
+                item_score_map[item] = score
+            start += batch_size
+        # padding the last incomplete minibatch if exists
+        if start < len(test_item_list):
+            feed_dict = {model.user_indices: [user] * batch_size,
+                         model.item_indices: test_item_list[start:] + [test_item_list[-1]] * (
+                                     batch_size - len(test_item_list) + start)}
+            feed_dict.update(ngh_sample_feed_dict)
+
+            items, scores = model.get_scores(sess, feed_dict)
+            for item, score in zip(items, scores):
+                item_score_map[item] = score
+
+        item_score_pair_sorted = sorted(item_score_map.items(), key=lambda x: x[1], reverse=True)
+        item_sorted = [i[0] for i in item_score_pair_sorted]
+
+        score_map[user] = item_score_map
+
+        hits = np.zeros(len(item_sorted))
+        index = [i for i, x in enumerate(item_sorted) if x in test_record[user]]
+        hits[index] = 1
+
+        for k in k_list:
+            hit_k = hits[:k]
+            hit_num = np.sum(hit_k)
+            precision_list[k].append(hit_num / k)
+            recall_list[k].append(hit_num / len(test_record[user]))
+            dcg = np.sum((2 ** hit_k - 1) / np.log2(np.arange(2, k + 2)))
+            sorted_hits_k = np.flip(np.sort(hits))[:k]
+            idcg = np.sum((2 ** sorted_hits_k - 1) / np.log2(np.arange(2, k + 2)))
+            # idcg[idcg == 0] = np.inf
+            ndcg_list[k].append(dcg / idcg)
+
+    precision = [np.mean(precision_list[k]) for k in k_list]
+    recall = [np.mean(recall_list[k]) for k in k_list]
+    ndcg = [np.mean(ndcg_list[k]) for k in k_list]
+
+    return precision, recall, ndcg, score_map
+
 
 
 def ctr_offline(data, batch_size, scores_load):
@@ -595,8 +668,7 @@ def Reproduce(args, task):
             logging.info('')
 
     else:
-        recall_list = []
-        ndcg_list = []
+
         for i in file_name:
             train_file = 'train_' + str(i) + '.txt'
             eval_file = 'eval_' + str(i) + '.txt'
@@ -613,13 +685,13 @@ def Reproduce(args, task):
                 eval_file_topk = f'./checkpoints/{args.data_name}/TopK-eval-split-{i}-epoch-{epoch}.npy'
                 eval_precision, eval_recall, eval_ndcg, line1 = reproduce_i(args, train_data, eval_data, n_item,
                                                                           eval_file_topk, 'topk')
-                line1 = 'Eval P: ' +line1
+                line1 = f'Data split-[{i}]-Epoch {epoch} \n  Eval P: ' +line1
 
 
                 test_file_topk = f'./checkpoints/{args.data_name}/TopK-test-split-{i}-epoch-{epoch}.npy'
                 test_precision, test_recall, test_ndcg, line2 = reproduce_i(args, train_data, test_data, n_item,
                                                                            test_file_topk, 'topk')
-                line2 = 'Test P: ' + line2
+                line2 = f'Data split-[{i}]-Epoch {epoch} \n Test P: ' + line2
                 logging.info(line1)
                 logging.info(line2)
                 logging.info('--------------------------------')
@@ -628,11 +700,7 @@ def Reproduce(args, task):
                 r_list.append(test_recall)
                 n_list.append(test_ndcg)
 
-            recall_list.append(max(r_list))
-            ndcg_list.append(max(n_list))
-        logging.info('Top-20 recommendation over 5 splits:   Avg-best-R %.4f | Avg-best-NDCG: %.4f ' % (
-        np.mean(recall_list), np.mean(ndcg_list)))
+    logging.info('********************************************************************************************')
+    logging.info('********************************************************************************************')
 
-    logging.info('********************************************************************************************')
-    logging.info('********************************************************************************************')
 
