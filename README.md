@@ -37,6 +37,9 @@ If you find this paper useful for your research, please kind cite it as:
   title={Attentive Knowledge-aware Graph Convolutional Networks with Collaborative Guidance for Personalized Recommendation},
   author={Chen, Yankai and Yang, Yaming and Wang, Yujing and Bai, Jing and Song, Xiangchen and King, Irwin},
   booktitle={The 38th IEEE International Conference on Data Engineering},
-  year={2022} 
+  pages={299--311},
+  publisher={{IEEE}},
+  year={2022},
+
 }
 ```
